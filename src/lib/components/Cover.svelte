@@ -8,12 +8,17 @@
 	}: { url: string | null; type: MediaTypeValue; width?: number } = $props();
 
 	let failed = $state(false);
+
+	// Catches images that failed before hydration, when onerror wasn't attached yet
+	function checkLoaded(img: HTMLImageElement) {
+		if (img.complete && img.naturalWidth === 0) failed = true;
+	}
 </script>
 
 <!-- Decorative: the title is always shown next to it. 2:3 poster ratio; falls back to a type label -->
 <div class="cover" style:width="{width}px">
 	{#if url && !failed}
-		<img src={url} alt="" loading="lazy" onerror={() => (failed = true)} />
+		<img src={url} alt="" loading="lazy" onerror={() => (failed = true)} use:checkLoaded />
 	{:else}
 		<span aria-hidden="true">{TYPE_LABELS[type]}</span>
 	{/if}

@@ -5,6 +5,19 @@
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
+
+	// Pages come from the service worker's saved copies while offline; saving changes won't work
+	let online = $state(true);
+	$effect(() => {
+		const update = () => (online = navigator.onLine);
+		update();
+		window.addEventListener('online', update);
+		window.addEventListener('offline', update);
+		return () => {
+			window.removeEventListener('online', update);
+			window.removeEventListener('offline', update);
+		};
+	});
 </script>
 
 <svelte:head>
@@ -22,6 +35,10 @@
 			</form>
 		</nav>
 	</header>
+{/if}
+
+{#if !online}
+	<p class="offline" role="status">Offline: showing the last saved copy. Changes won't save.</p>
 {/if}
 
 <main>
@@ -69,6 +86,14 @@
 		border: 0;
 		cursor: pointer;
 		font-size: var(--text-sm);
+	}
+	.offline {
+		margin: 0;
+		padding: var(--space-2) var(--space-4);
+		background: var(--surface-2);
+		color: var(--muted);
+		font-size: var(--text-sm);
+		text-align: center;
 	}
 	main {
 		max-width: var(--max-width);
