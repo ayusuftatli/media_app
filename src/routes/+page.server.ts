@@ -1,11 +1,12 @@
-import { desc, inArray } from 'drizzle-orm';
+import { desc } from 'drizzle-orm';
+import { parseFilters } from '#lib/filters.ts';
 import { db } from '#lib/server/db/index.ts';
 import { mediaItems } from '#lib/server/db/schema.ts';
+import { filterWhere } from '#lib/server/filters.ts';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
-	// Default view is what's still ahead; ?show=all includes finished and dropped
-	const showAll = url.searchParams.get('show') === 'all';
+	const filters = parseFilters(url.searchParams);
 
 	const items = await db
 		.select({
@@ -21,8 +22,8 @@ export const load: PageServerLoad = async ({ url }) => {
 			rating: mediaItems.rating
 		})
 		.from(mediaItems)
-		.where(showAll ? undefined : inArray(mediaItems.status, ['want', 'in_progress']))
+		.where(filterWhere(filters))
 		.orderBy(desc(mediaItems.addedAt));
 
-	return { items, showAll };
+	return { items, filters };
 };

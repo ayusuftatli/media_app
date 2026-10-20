@@ -1,26 +1,126 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import Cover from '#lib/components/Cover.svelte';
-	import { STATUS_LABELS, TYPE_LABELS, formatLength } from '#lib/media.ts';
+	import {
+		LENGTH_FILTERS,
+		STATUS_FILTERS,
+		filtersQuery,
+		hasActiveFilters,
+		lengthOptionsFor,
+		parseFilters
+	} from '#lib/filters.ts';
+	import { MEDIA_TYPES, STATUS_LABELS, TYPE_LABELS, formatLength } from '#lib/media.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	let filters = $derived(data.filters);
+	let filtered = $derived(hasActiveFilters(filters));
+
+	let form = $state<HTMLFormElement>();
+	let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+	// Rebuild the URL from the form, leaving out defaults; works as a plain GET form without JS
+	function apply(event?: SubmitEvent) {
+		event?.preventDefault();
+		if (!form) return;
+		const params = new URLSearchParams(new FormData(form) as unknown as Record<string, string>);
+		// replace: filter tweaks shouldn't pile up in history; reset: false keeps focus and scroll
+		goto(`${page.url.pathname}${filtersQuery(parseFilters(params))}`, {
+			replace: true,
+			reset: false
+		});
+	}
+
+	function applySoon() {
+		clearTimeout(searchTimer);
+		searchTimer = setTimeout(apply, 250);
+	}
+
+	// Pick always draws from "Want to", so the status filter isn't passed along
+	let pickHref = $derived(`/pick${filtersQuery({ ...filters, status: 'active' })}`);
 </script>
 
 <svelte:head>
 	<title>Media Shelf</title>
 </svelte:head>
 
-<div class="heading">
-	<h1>{data.showAll ? 'Everything' : 'Up next'}</h1>
-	<a href={data.showAll ? '/' : '/?show=all'}>
-		{data.showAll ? 'Show up next only' : 'Show finished and dropped too'}
-	</a>
-</div>
+<form class="filters" method="GET" bind:this={form} onsubmit={apply}>
+	<div class="search-row">
+		<label for="q" class="visually-hidden">Search my list</label>
+		<input
+			id="q"
+			name="q"
+			type="search"
+			placeholder="Search my list"
+			value={filters.q}
+			autocomplete="off"
+			enterkeyhint="search"
+			oninput={applySoon}
+		/>
+		<a class="button primary surprise" href={pickHref}>Surprise me</a>
+	</div>
+
+	<fieldset class="segmented">
+		<legend class="visually-hidden">Type</legend>
+		<label>
+			<input type="radio" name="type" value="" checked={!filters.type} onchange={() => apply()} />
+			<span>All</span>
+		</label>
+		{#each MEDIA_TYPES as option (option)}
+			<label>
+				<input
+					type="radio"
+					name="type"
+					value={option}
+					checked={filters.type === option}
+					onchange={() => apply()}
+				/>
+				<span>{TYPE_LABELS[option]}</span>
+			</label>
+		{/each}
+	</fieldset>
+
+	<div class="selects">
+		<div>
+			<label for="status" class="visually-hidden">Status</label>
+			<select id="status" name="status" value={filters.status} onchange={() => apply()}>
+				{#each Object.entries(STATUS_FILTERS) as [value, label] (value)}
+					<option {value}>{label}</option>
+				{/each}
+			</select>
+		</div>
+		{#if lengthOptionsFor(filters.type).length > 0}
+			<div>
+				<label for="length" class="visually-hidden">Length</label>
+				<select id="length" name="length" value={filters.length ?? ''} onchange={() => apply()}>
+					<option value="">Any length</option>
+					{#each lengthOptionsFor(filters.type) as value (value)}
+						<option {value}>{LENGTH_FILTERS[value].label}</option>
+					{/each}
+				</select>
+			</div>
+		{/if}
+	</div>
+
+	<noscript><button class="button">Apply</button></noscript>
+</form>
+
+<p class="count" aria-live="polite">
+	{data.items.length}
+	{data.items.length === 1 ? 'item' : 'items'}
+	{#if filtered}· <a href="/">Clear filters</a>{/if}
+</p>
 
 {#if data.items.length === 0}
 	<div class="empty">
-		<p>{data.showAll ? 'Nothing saved yet.' : 'Nothing waiting. Nice.'}</p>
-		<a class="button primary" href="/add">Add something</a>
+		{#if filtered}
+			<p>Nothing matches these filters.</p>
+			<a class="button" href="/">Clear filters</a>
+		{:else}
+			<p>Nothing waiting. Add something to get started.</p>
+			<a class="button primary" href="/add">Add something</a>
+		{/if}
 	</div>
 {:else}
 	<ul>
@@ -55,19 +155,31 @@
 {/if}
 
 <style>
-	.heading {
+	.filters {
+		display: grid;
+		gap: var(--space-3);
+		margin-bottom: var(--space-3);
+	}
+	.search-row {
 		display: flex;
-		align-items: baseline;
-		justify-content: space-between;
-		flex-wrap: wrap;
 		gap: var(--space-2);
-		margin-bottom: var(--space-4);
 	}
-	.heading a {
+	.search-row input {
+		flex: 1;
+		min-width: 0;
+	}
+	.surprise {
+		flex: none;
+	}
+	.selects {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+		gap: var(--space-2);
+	}
+	.count {
+		margin: 0 0 var(--space-3);
+		color: var(--muted);
 		font-size: var(--text-sm);
-	}
-	h1 {
-		font-size: var(--text-xl);
 	}
 	ul {
 		list-style: none;
