@@ -164,3 +164,47 @@ label {
 	clip: rect(0 0 0 0);
 	white-space: nowrap;
 }
+
+/* Segmented radio control, e.g. Movie / TV / Book */
+.segmented {
+	display: flex;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	min-width: 0;
+}
+.segmented label {
+	flex: 1;
+	margin: 0;
+	font-size: 1rem;
+}
+.segmented input {
+	position: absolute;
+	opacity: 0;
+}
+.segmented span {
+	display: block;
+	padding: var(--space-2);
+	text-align: center;
+	border: 1px solid var(--border);
+	background: var(--surface);
+	cursor: pointer;
+}
+.segmented label:first-of-type span {
+	border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.segmented label:last-of-type span {
+	border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.segmented label + label span {
+	border-left: 0;
+}
+.segmented input:checked + span {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--accent-text);
+}
+.segmented input:focus-visible + span {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
+}

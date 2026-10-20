@@ -16,7 +16,7 @@
 		<a class="brand" href="/">Media Shelf</a>
 		<nav>
 			<a href="/" aria-current={page.url.pathname === '/' ? 'page' : undefined}>List</a>
-			<a href="/add" aria-current={page.url.pathname === '/add' ? 'page' : undefined}>Add</a>
+			<a href="/add" aria-current={page.url.pathname.startsWith('/add') ? 'page' : undefined}>Add</a>
 			<form method="POST" action="/logout">
 				<button class="link">Log out</button>
 			</form>

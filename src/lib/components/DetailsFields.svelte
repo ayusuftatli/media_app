@@ -27,7 +27,7 @@
 	{/if}
 {/snippet}
 
-<fieldset class="types">
+<fieldset class="segmented">
 	<legend class="visually-hidden">Type</legend>
 	{#each MEDIA_TYPES as option (option)}
 		<label>
@@ -114,48 +114,6 @@
 </div>
 
 <style>
-	.types {
-		display: flex;
-		gap: 0;
-		margin: 0;
-		padding: 0;
-		border: 0;
-	}
-	.types label {
-		flex: 1;
-		margin: 0;
-		font-size: 1rem;
-	}
-	.types input {
-		position: absolute;
-		opacity: 0;
-	}
-	.types span {
-		display: block;
-		padding: var(--space-2);
-		text-align: center;
-		border: 1px solid var(--border);
-		background: var(--surface);
-		cursor: pointer;
-	}
-	.types label:first-of-type span {
-		border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-	}
-	.types label:last-of-type span {
-		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-	}
-	.types label + label span {
-		border-left: 0;
-	}
-	.types input:checked + span {
-		background: var(--accent);
-		border-color: var(--accent);
-		color: var(--accent-text);
-	}
-	.types input:focus-visible + span {
-		outline: 2px solid var(--focus);
-		outline-offset: 2px;
-	}
 	.row {
 		display: flex;
 		gap: var(--space-3);
