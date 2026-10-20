@@ -12,10 +12,11 @@ import {
 	unique,
 	uuid
 } from 'drizzle-orm/pg-core';
+import { MEDIA_SOURCES, MEDIA_STATUSES, MEDIA_TYPES } from '../../media';
 
-export const mediaType = pgEnum('media_type', ['movie', 'tv', 'book']);
-export const mediaStatus = pgEnum('media_status', ['want', 'in_progress', 'finished', 'dropped']);
-export const mediaSource = pgEnum('media_source', ['tmdb', 'openlibrary', 'manual']);
+export const mediaType = pgEnum('media_type', MEDIA_TYPES);
+export const mediaStatus = pgEnum('media_status', MEDIA_STATUSES);
+export const mediaSource = pgEnum('media_source', MEDIA_SOURCES);
 
 export const mediaItems = pgTable(
 	'media_items',

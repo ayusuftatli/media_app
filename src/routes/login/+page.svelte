@@ -10,7 +10,7 @@
 	<title>Log in · Media Shelf</title>
 </svelte:head>
 
-<main>
+<div class="login">
 	<h1>Media Shelf</h1>
 	<form
 		method="POST"
@@ -22,43 +22,39 @@
 			};
 		}}
 	>
-		<label for="password">Password</label>
-		<!-- svelte-ignore a11y_autofocus -->
-		<input
-			id="password"
-			name="password"
-			type="password"
-			autocomplete="current-password"
-			required
-			autofocus
-			aria-invalid={form?.incorrect ? 'true' : undefined}
-			aria-describedby={form?.incorrect ? 'password-error' : undefined}
-		/>
-		{#if form?.incorrect}
-			<p id="password-error" class="error">Wrong password.</p>
-		{/if}
-		<button disabled={submitting}>{submitting ? 'Checking…' : 'Log in'}</button>
+		<div>
+			<label for="password">Password</label>
+			<!-- svelte-ignore a11y_autofocus -->
+			<input
+				id="password"
+				name="password"
+				type="password"
+				autocomplete="current-password"
+				required
+				autofocus
+				aria-invalid={form?.incorrect ? 'true' : undefined}
+				aria-describedby={form?.incorrect ? 'password-error' : undefined}
+			/>
+			{#if form?.incorrect}
+				<p id="password-error" class="field-error">Wrong password.</p>
+			{/if}
+		</div>
+		<button class="button primary" disabled={submitting}>
+			{submitting ? 'Checking…' : 'Log in'}
+		</button>
 	</form>
-</main>
+</div>
 
 <style>
-	main {
+	.login {
 		max-width: 22rem;
-		margin: 20vh auto 0;
-		padding: 0 1rem;
-		font-family: system-ui, sans-serif;
+		margin: 18vh auto 0;
+	}
+	h1 {
+		margin-bottom: var(--space-5);
 	}
 	form {
 		display: grid;
-		gap: 0.5rem;
-	}
-	input,
-	button {
-		font: inherit;
-		padding: 0.6rem 0.75rem;
-	}
-	.error {
-		color: #b00020;
-		margin: 0;
+		gap: var(--space-4);
 	}
 </style>
