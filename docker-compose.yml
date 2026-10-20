@@ -1,0 +1,22 @@
+# Local Postgres for development. Railway provides its own in production.
+# Host port 5433 because 5432 is already taken by a local PostgreSQL 15 install.
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: media_shelf
+      POSTGRES_PASSWORD: media_shelf
+      POSTGRES_DB: media_shelf
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U media_shelf -d media_shelf']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
