@@ -14,6 +14,11 @@
 	--danger: #b3261e;
 	--focus: #2f5d50;
 
+	/* One colour per media type in charts (validated for colour-blind separation and contrast) */
+	--series-movie: #11866a;
+	--series-tv: #cc7a22;
+	--series-book: #5468d4;
+
 	--radius: 10px;
 	--radius-sm: 6px;
 	--space-1: 0.25rem;
@@ -43,6 +48,10 @@
 		--accent-soft: #24372f;
 		--danger: #f2a49e;
 		--focus: #8cc4b0;
+
+		--series-movie: #239a7c;
+		--series-tv: #c97c30;
+		--series-book: #6f80e6;
 	}
 }
 
