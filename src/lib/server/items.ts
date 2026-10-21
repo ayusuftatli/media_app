@@ -85,7 +85,7 @@ export function parseProgress(form: FormData, type: MediaTypeValue) {
 
 	const currentSeason = type === 'tv' ? int(form, 'current_season', 1, 500, errors) : null;
 	// Rating only belongs to finished items
-	const rating = status === 'finished' ? int(form, 'rating', 1, 10, errors) : null;
+	const rating = status === 'finished' ? int(form, 'rating', 1, 5, errors) : null;
 
 	return {
 		errors,
@@ -115,4 +115,21 @@ export function statusTimestamps(
 
 export function hasErrors(errors: FieldErrors) {
 	return Object.keys(errors).length > 0;
+}
+
+// Source descriptions (Open Library especially) arrive as Markdown: drop the markup, link
+// references and "([source][1])" trailers so the text reads cleanly as plain text
+export function plainDescription(text: string | null) {
+	if (!text) return null;
+	const cleaned = text
+		.replace(/^\s*\[\d+\]:\s*\S+.*$/gm, '')
+		.replace(/\(\s*\[[^\]]*\]\[\d+\]\s*\)/g, '')
+		.replace(/\[([^\]]+)\]\[\d+\]/g, '$1')
+		.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+		.replace(/(\*\*|__)(.+?)\1/g, '$2')
+		.replace(/(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])/g, '$1')
+		.replace(/^-{3,}\s*$/gm, '')
+		.replace(/\n{3,}/g, '\n\n')
+		.trim();
+	return cleaned || null;
 }

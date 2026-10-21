@@ -108,7 +108,7 @@
 			<li class="tile">
 				<span class="tile-label">{LEGEND[type]}</span>
 				{#if average != null}
-					<span class="tile-value">{average.toFixed(1)}<small>/10</small></span>
+					<span class="tile-value">{average.toFixed(1)}<small>/5</small></span>
 					<span class="tile-note">from {rated} rated</span>
 				{:else}
 					<span class="tile-value muted">–</span>

@@ -13,11 +13,14 @@
 	let {
 		type = $bindable(),
 		values = {},
-		errors = {}
+		errors = {},
+		// Off when editing a saved item: its type is fixed
+		chooseType = true
 	}: {
 		type: MediaTypeValue;
 		values?: Values;
 		errors?: Partial<Record<string, string>>;
+		chooseType?: boolean;
 	} = $props();
 </script>
 
@@ -27,16 +30,18 @@
 	{/if}
 {/snippet}
 
-<fieldset class="segmented">
-	<legend class="visually-hidden">Type</legend>
-	{#each MEDIA_TYPES as option (option)}
-		<label>
-			<input type="radio" name="type" value={option} bind:group={type} />
-			<span>{TYPE_LABELS[option]}</span>
-		</label>
-	{/each}
-</fieldset>
-{@render error('type')}
+{#if chooseType}
+	<fieldset class="segmented">
+		<legend class="visually-hidden">Type</legend>
+		{#each MEDIA_TYPES as option (option)}
+			<label>
+				<input type="radio" name="type" value={option} bind:group={type} />
+				<span>{TYPE_LABELS[option]}</span>
+			</label>
+		{/each}
+	</fieldset>
+	{@render error('type')}
+{/if}
 
 <div>
 	<label for="title">Title</label>

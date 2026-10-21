@@ -67,7 +67,7 @@
 		return item.type === 'book' ? 'Reading' : 'Watching';
 	}
 	function posterMeta(item: Item) {
-		if (item.status === 'finished' && item.rating) return `${item.rating}/10`;
+		if (item.status === 'finished' && item.rating) return `★ ${item.rating}`;
 		if (item.status === 'in_progress') return progressLabel(item);
 		if (item.status === 'dropped') return 'Dropped';
 		return [item.year, formatLength(item.type, item.length) ?? TYPE_LABELS[item.type]]

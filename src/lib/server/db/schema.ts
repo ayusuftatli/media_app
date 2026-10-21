@@ -54,7 +54,7 @@ export const mediaItems = pgTable(
 	(t) => [
 		// Blocks saving the same title twice; NULL source_ids (manual) never collide
 		unique('media_items_source_source_id_unique').on(t.source, t.sourceId),
-		check('media_items_rating_range', sql`${t.rating} between 1 and 10`),
+		check('media_items_rating_range', sql`${t.rating} between 1 and 5`),
 		index('media_items_status_idx').on(t.status),
 		index('media_items_type_idx').on(t.type)
 	]

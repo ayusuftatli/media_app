@@ -7,6 +7,7 @@ import {
 	isUuid,
 	parseDetails,
 	parseProgress,
+	plainDescription,
 	statusTimestamps
 } from '#lib/server/items.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -22,7 +23,9 @@ async function getItem(id: string) {
 export const load: PageServerLoad = async ({ params }) => {
 	const { metadata, ...item } = await getItem(params.id);
 	// Only the description from the source; the rest of metadata isn't shown
-	const overview = typeof metadata.overview === 'string' ? metadata.overview : null;
+	const overview = plainDescription(
+		typeof metadata.overview === 'string' ? metadata.overview : null
+	);
 	return { item, overview };
 };
 
@@ -41,15 +44,13 @@ export const actions: Actions = {
 
 	details: async ({ params, request }) => {
 		const item = await getItem(params.id);
-		const { errors, values } = parseDetails(await request.formData());
+		const form = await request.formData();
+		// The type is fixed once saved: a book stays a book, whatever the form says
+		form.set('type', item.type);
+		const { errors, values } = parseDetails(form);
 		if (hasErrors(errors)) return fail(400, { detailsErrors: errors });
 
-		// Switching to or from TV invalidates the season fields
-		const typeChanged = values.type !== item.type;
-		await db
-			.update(mediaItems)
-			.set({ ...values, ...(typeChanged && { currentSeason: null }) })
-			.where(eq(mediaItems.id, item.id));
+		await db.update(mediaItems).set(values).where(eq(mediaItems.id, item.id));
 		return { saved: 'details' as const };
 	},
 

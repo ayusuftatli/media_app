@@ -4,13 +4,13 @@
 	import Cover, { coverTint } from '#lib/components/Cover.svelte';
 	import DetailsFields from '#lib/components/DetailsFields.svelte';
 	import Icon, { type IconName } from '#lib/components/Icon.svelte';
+	import StarRating from '#lib/components/StarRating.svelte';
 	import {
 		MEDIA_STATUSES,
 		STATUS_LABELS,
 		TYPE_LABELS,
 		formatLength,
-		type MediaStatusValue,
-		type MediaTypeValue
+		type MediaStatusValue
 	} from '#lib/media.ts';
 	import type { PageProps } from './$types';
 
@@ -19,7 +19,6 @@
 
 	// Local edits; reset whenever the server sends a fresh item
 	let status = $derived<MediaStatusValue>(item.status);
-	let detailsType = $derived<MediaTypeValue>(item.type);
 	let detailsOpen = $state(false);
 	$effect.pre(() => {
 		if (form?.detailsErrors) detailsOpen = true;
@@ -78,6 +77,14 @@
 		saveNow();
 	}
 
+	let rating = $derived<number | null>(item.rating);
+	async function clearRating() {
+		rating = null;
+		// With no star selected the form sends no rating, which saves it as empty
+		await tick();
+		saveNow();
+	}
+
 	async function moveTo(next: MediaStatusValue) {
 		status = next;
 		// Let the season and rating fields for the new status render before saving
@@ -102,6 +109,19 @@
 			busy = false;
 		};
 	};
+
+	// Long descriptions show four lines; "More" appears only when there's more to show
+	let aboutOpen = $state(false);
+	let aboutLong = $state(false);
+	function measureAbout(element: HTMLElement) {
+		const measure = () => {
+			if (!aboutOpen) aboutLong = element.scrollHeight > element.clientHeight + 1;
+		};
+		measure();
+		const observer = new ResizeObserver(measure);
+		observer.observe(element);
+		return () => observer.disconnect();
+	}
 
 	let menu = $state<HTMLDetailsElement>();
 	let detailsSection = $state<HTMLElement>();
@@ -209,13 +229,8 @@
 	{#if status === 'finished'}
 		<fieldset class="card rating">
 			<legend>Your rating</legend>
-			<div class="options">
-				{#each Array.from({ length: 10 }, (_, i) => i + 1) as value (value)}
-					<label>
-						<input type="radio" name="rating" {value} checked={item.rating === value} />
-						<span>{value}</span>
-					</label>
-				{/each}
+			<div class="rating-control">
+				<StarRating name="rating" bind:value={rating} onclear={clearRating} />
 			</div>
 			{#if form?.progressErrors?.rating}
 				<p class="field-error">{form.progressErrors.rating}</p>
@@ -226,7 +241,18 @@
 	{#if data.overview}
 		<section class="about">
 			<h2>About</h2>
-			<p>{data.overview}</p>
+			<p id="about-text" class:clamped={!aboutOpen} {@attach measureAbout}>{data.overview}</p>
+			{#if aboutLong}
+				<button
+					type="button"
+					class="more"
+					aria-expanded={aboutOpen}
+					aria-controls="about-text"
+					onclick={() => (aboutOpen = !aboutOpen)}
+				>
+					{aboutOpen ? 'Less' : 'More'}
+				</button>
+			{/if}
 		</section>
 	{/if}
 
@@ -276,7 +302,7 @@
 <details class="card edit" bind:open={detailsOpen} bind:this={detailsSection}>
 	<summary>Edit details</summary>
 	<form method="POST" action="?/details" use:enhance={saveDetails}>
-		<DetailsFields bind:type={detailsType} values={item} errors={form?.detailsErrors} />
+		<DetailsFields type={item.type} chooseType={false} values={item} errors={form?.detailsErrors} />
 		<div class="actions">
 			<button class="button primary" disabled={busy}>Save details</button>
 			{#if form?.saved === 'details'}<span class="saved" role="status">Saved</span>{/if}
@@ -450,6 +476,10 @@
 		font-weight: 700;
 	}
 
+	/* The legend is floated to sit inside the card's padding; the control starts below it */
+	.rating-control {
+		clear: both;
+	}
 	.rating legend {
 		float: left;
 		width: 100%;
@@ -459,41 +489,6 @@
 		font-weight: 700;
 		color: var(--muted);
 	}
-	.options {
-		clear: both;
-		display: grid;
-		grid-template-columns: repeat(5, minmax(0, 1fr));
-		gap: var(--space-2);
-	}
-	.options label {
-		margin: 0;
-		color: var(--text);
-		font-size: 1rem;
-	}
-	.options input {
-		position: absolute;
-		opacity: 0;
-	}
-	.options span {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 2.75rem;
-		border-radius: var(--radius-sm);
-		background: var(--surface-2);
-		font-weight: 700;
-		cursor: pointer;
-	}
-	.options input:checked + span {
-		background: var(--accent);
-		color: var(--accent-text);
-		font-weight: 800;
-	}
-	.options input:focus-visible + span {
-		outline: 2px solid var(--focus);
-		outline-offset: 2px;
-	}
-
 	h2 {
 		font-size: 1.0625rem;
 		font-weight: 800;
@@ -508,6 +503,25 @@
 		color: var(--text-soft);
 		font-size: 0.9375rem;
 		line-height: 1.55;
+		/* Keeps the source's paragraph breaks */
+		white-space: pre-line;
+	}
+	.about p.clamped {
+		display: -webkit-box;
+		-webkit-line-clamp: 4;
+		line-clamp: 4;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+	.more {
+		justify-self: start;
+		padding: var(--space-1) 0;
+		border: 0;
+		background: none;
+		color: var(--accent);
+		font-size: 0.9375rem;
+		font-weight: 700;
+		cursor: pointer;
 	}
 
 	.notes {
