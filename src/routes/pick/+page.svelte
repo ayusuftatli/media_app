@@ -35,7 +35,7 @@
 
 {#if pick}
 	<article class="card" aria-live="polite">
-		<Cover url={pick.coverUrl} type={pick.type} width={120} />
+		<Cover url={pick.coverUrl} type={pick.type} title={pick.title} width={120} />
 		<div class="details">
 			<h1>{pick.title}</h1>
 			<p class="meta">
@@ -97,7 +97,9 @@
 		border-radius: var(--radius);
 	}
 	h1 {
-		font-size: var(--text-lg);
+		font-size: 1.5rem;
+		font-weight: 800;
+		letter-spacing: -0.02em;
 		margin-bottom: var(--space-2);
 	}
 	.meta {
@@ -108,7 +110,9 @@
 	.overview {
 		grid-column: 1 / -1;
 		margin: 0;
-		font-size: var(--text-sm);
+		font-size: 0.9375rem;
+		line-height: 1.55;
+		color: var(--text-soft);
 		display: -webkit-box;
 		-webkit-line-clamp: 6;
 		line-clamp: 6;

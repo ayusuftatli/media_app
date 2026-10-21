@@ -1,5 +1,7 @@
 <script lang="ts">
+	import '@fontsource-variable/manrope';
 	import '../app.css';
+	import Icon from '#lib/components/Icon.svelte';
 	import favicon from '#lib/assets/favicon.svg';
 	import { navigating, page } from '$app/state';
 	import type { LayoutProps } from './$types';
@@ -39,87 +41,70 @@
 	<div class="loading-bar" role="progressbar" aria-label="Loading"></div>
 {/if}
 
-{#if data.authenticated}
-	<header>
-		<a class="brand" href="/">Media Shelf</a>
-		<nav>
-			<a href="/" aria-current={page.url.pathname === '/' ? 'page' : undefined}>List</a>
-			<a href="/add" aria-current={page.url.pathname.startsWith('/add') ? 'page' : undefined}>Add</a>
-			<a href="/stats" aria-current={page.url.pathname === '/stats' ? 'page' : undefined}>Stats</a>
-			<form method="POST" action="/logout">
-				<button class="link">Log out</button>
-			</form>
-		</nav>
-	</header>
-{/if}
-
 {#if !online}
 	<p class="offline" role="status">Offline: showing the last saved copy. Changes won't save.</p>
 {/if}
 
-<main>
+<main class:with-tabs={data.authenticated}>
 	{@render children()}
 </main>
 
+{#if data.authenticated}
+	{@const path = page.url.pathname}
+	<!-- Bottom tab bar: in thumb reach on phones. Item pages and Surprise me belong to the shelf -->
+	<nav class="tabs" aria-label="Main">
+		<a
+			href="/"
+			aria-current={path === '/' || path.startsWith('/items') || path.startsWith('/pick')
+				? 'page'
+				: undefined}
+		>
+			<Icon name="shelf" size={24} />Shelf
+		</a>
+		<a href="/add" aria-current={path.startsWith('/add') ? 'page' : undefined}>
+			<Icon name="add" size={24} />Add
+		</a>
+		<a
+			href="/stats"
+			aria-current={path === '/stats' || path === '/about' ? 'page' : undefined}
+		>
+			<Icon name="stats" size={24} />Stats
+		</a>
+	</nav>
+{/if}
+
 <style>
-	header {
-		position: sticky;
-		top: 0;
+	.tabs {
+		position: fixed;
+		inset: auto 0 0;
 		z-index: 10;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--space-3);
-		padding: var(--space-2) var(--space-4);
-		background: var(--surface);
-		border-bottom: 1px solid var(--border);
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom));
+		background: var(--bar);
+		border-top: 1px solid var(--border);
 	}
-	.brand {
-		font-weight: 700;
-		color: var(--text);
-		text-decoration: none;
-		white-space: nowrap;
-	}
-	nav {
+	.tabs a {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
 		gap: var(--space-1);
-	}
-	nav a,
-	.link {
-		padding: var(--space-2) var(--space-3);
-		border-radius: var(--radius-sm);
+		min-height: 3.25rem;
+		justify-content: center;
 		color: var(--muted);
 		text-decoration: none;
-		font-size: var(--text-sm);
+		font-size: 0.75rem;
 		font-weight: 600;
 	}
-	nav a,
-	.link {
-		white-space: nowrap;
+	.tabs a[aria-current='page'] {
+		color: var(--accent);
+		font-weight: 800;
 	}
-	/* Four nav items plus the name have to fit a 375px phone */
-	@media (max-width: 26rem) {
-		header {
-			padding-inline: var(--space-3);
+	@media (min-width: 40rem) {
+		.tabs {
+			grid-template-columns: repeat(3, 8rem);
+			justify-content: center;
 		}
-		nav {
-			gap: 0;
-		}
-		nav a,
-		.link {
-			padding-inline: var(--space-2);
-		}
-	}
-		nav a[aria-current='page'] {
-		color: var(--text);
-		background: var(--surface-2);
-	}
-	.link {
-		background: none;
-		border: 0;
-		cursor: pointer;
-		font-size: var(--text-sm);
 	}
 	.loading-bar {
 		position: fixed;
@@ -163,8 +148,17 @@
 		text-align: center;
 	}
 	main {
+		--gutter: var(--space-5);
 		max-width: var(--max-width);
 		margin: 0 auto;
-		padding: var(--space-4) var(--space-4) var(--space-6);
+		padding: var(--space-4) var(--gutter) var(--space-6);
+	}
+	main.with-tabs {
+		padding-bottom: calc(var(--tabbar-height) + var(--space-6) + env(safe-area-inset-bottom));
+	}
+	@media (max-width: 26rem) {
+		main {
+			--gutter: var(--space-4);
+		}
 	}
 </style>

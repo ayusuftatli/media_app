@@ -356,7 +356,8 @@
 	.toast {
 		position: fixed;
 		left: 50%;
-		bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+		/* Above the bottom tab bar */
+		bottom: calc(var(--tabbar-height) + var(--space-3) + env(safe-area-inset-bottom));
 		transform: translateX(-50%);
 		display: flex;
 		gap: var(--space-3);

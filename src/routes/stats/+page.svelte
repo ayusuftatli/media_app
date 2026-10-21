@@ -119,7 +119,12 @@
 	</ul>
 </section>
 
-<p class="about"><a href="/about">About and credits</a></p>
+<div class="about">
+	<a href="/about">About and credits</a>
+	<form method="POST" action="/logout">
+		<button class="link">Log out</button>
+	</form>
+</div>
 
 <style>
 	h1 {
@@ -290,8 +295,21 @@
 		color: var(--muted);
 	}
 	.about {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: var(--space-4);
 		margin-top: var(--space-6);
-		text-align: center;
 		font-size: var(--text-sm);
+	}
+	.link {
+		min-height: 2.75rem;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--muted);
+		font-size: var(--text-sm);
+		font-weight: 700;
+		cursor: pointer;
 	}
 </style>

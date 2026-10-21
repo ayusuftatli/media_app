@@ -20,8 +20,10 @@ async function getItem(id: string) {
 }
 
 export const load: PageServerLoad = async ({ params }) => {
-	const { metadata: _metadata, ...item } = await getItem(params.id);
-	return { item };
+	const { metadata, ...item } = await getItem(params.id);
+	// Only the description from the source; the rest of metadata isn't shown
+	const overview = typeof metadata.overview === 'string' ? metadata.overview : null;
+	return { item, overview };
 };
 
 export const actions: Actions = {

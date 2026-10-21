@@ -52,6 +52,9 @@
 	}
 	h1 {
 		margin-bottom: var(--space-5);
+		font-size: var(--text-xl);
+		font-weight: 800;
+		letter-spacing: -0.02em;
 	}
 	form {
 		display: grid;

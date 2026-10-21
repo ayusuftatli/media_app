@@ -1,12 +1,13 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { enhance, type SubmitFunction } from '$app/forms';
-	import Cover from '#lib/components/Cover.svelte';
+	import Cover, { coverTint } from '#lib/components/Cover.svelte';
 	import DetailsFields from '#lib/components/DetailsFields.svelte';
+	import Icon, { type IconName } from '#lib/components/Icon.svelte';
 	import {
 		MEDIA_STATUSES,
 		STATUS_LABELS,
 		TYPE_LABELS,
-		creatorLabel,
 		formatLength,
 		type MediaStatusValue,
 		type MediaTypeValue
@@ -19,7 +20,13 @@
 	// Local edits; reset whenever the server sends a fresh item
 	let status = $derived<MediaStatusValue>(item.status);
 	let detailsType = $derived<MediaTypeValue>(item.type);
+	let detailsOpen = $state(false);
+	$effect.pre(() => {
+		if (form?.detailsErrors) detailsOpen = true;
+	});
 	let busy = $state(false);
+
+	let [tint] = $derived(coverTint(item.title));
 
 	const dateFormat = new Intl.DateTimeFormat('en-GB', {
 		day: 'numeric',
@@ -28,88 +35,184 @@
 	});
 	const formatDate = (date: Date | null) => (date ? dateFormat.format(date) : null);
 
-	const submit: SubmitFunction = () => {
+	// The one obvious next step for each status, next to the status picker
+	const NEXT: Partial<Record<MediaStatusValue, { label: string; to: MediaStatusValue; icon: IconName }>> =
+		{
+			want: { label: 'Start it', to: 'in_progress', icon: 'play' },
+			in_progress: { label: 'Mark finished', to: 'finished', icon: 'check' },
+			dropped: { label: 'Start again', to: 'in_progress', icon: 'play' }
+		};
+	let next = $derived(NEXT[status]);
+
+	// Season picker: up to the known total, or a few past the current one when it's unknown
+	let seasonCount = $derived(
+		item.seasonsTotal ?? Math.max(item.currentSeason ?? 1, 1) + 3
+	);
+
+	// Progress saves itself: right away for pickers, after a pause while typing
+	let progressForm = $state<HTMLFormElement>();
+	let saveState = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+	let typingTimer: ReturnType<typeof setTimeout> | undefined;
+	let textOnly = false;
+
+	function saveNow() {
+		clearTimeout(typingTimer);
+		textOnly = false;
+		progressForm?.requestSubmit();
+	}
+
+	function saveAfterTyping() {
+		clearTimeout(typingTimer);
+		typingTimer = setTimeout(() => {
+			textOnly = true;
+			progressForm?.requestSubmit();
+		}, 800);
+	}
+
+	function onProgressChange(event: Event) {
+		const target = event.target as HTMLElement;
+		// Text fields save from their input events; change fires again on blur
+		if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
+			if (target.type !== 'radio') return;
+		}
+		saveNow();
+	}
+
+	async function moveTo(next: MediaStatusValue) {
+		status = next;
+		// Let the season and rating fields for the new status render before saving
+		await tick();
+		saveNow();
+	}
+
+	const saveProgress: SubmitFunction = () => {
+		saveState = 'saving';
+		// Typing saves keep the page as is, so a refresh can't overwrite what's being typed
+		const keepPage = textOnly;
+		return async ({ result, update }) => {
+			await update({ reset: false, invalidateAll: !keepPage });
+			saveState = result.type === 'success' ? 'saved' : 'error';
+		};
+	};
+
+	const saveDetails: SubmitFunction = () => {
 		busy = true;
 		return async ({ update }) => {
 			await update({ reset: false });
 			busy = false;
 		};
 	};
+
+	let menu = $state<HTMLDetailsElement>();
+	let detailsSection = $state<HTMLElement>();
+	function editDetails() {
+		if (menu) menu.open = false;
+		detailsOpen = true;
+		requestAnimationFrame(() => detailsSection?.scrollIntoView({ behavior: 'smooth' }));
+	}
 </script>
 
 <svelte:head>
 	<title>{item.title} · Media Shelf</title>
 </svelte:head>
 
-<a class="back" href="/">← List</a>
+<div class="band" style:--tint={tint}>
+	{#if item.coverUrl}
+		<img class="band-art" src={item.coverUrl} alt="" />
+	{/if}
+	<a class="icon-button on-art" href="/" aria-label="Back to shelf">
+		<Icon name="back" size={22} stroke={2.25} />
+	</a>
+	<details class="menu" bind:this={menu}>
+		<summary class="icon-button on-art" aria-label="More: edit details, delete">
+			<Icon name="more" stroke={2.5} />
+		</summary>
+		<div class="menu-panel">
+			<button type="button" onclick={editDetails}>Edit details</button>
+			<form
+				method="POST"
+				action="?/delete"
+				onsubmit={(event) => {
+					if (!confirm(`Delete "${item.title}"? This can't be undone.`)) event.preventDefault();
+				}}
+			>
+				<button class="danger">Delete</button>
+			</form>
+		</div>
+	</details>
+</div>
 
-<section class="summary">
-	<Cover url={item.coverUrl} type={item.type} width={96} />
-	<div>
-		<h1>{item.title}</h1>
-		<p class="meta">
-			{[
-				TYPE_LABELS[item.type],
-				item.year,
-				item.creator && `${creatorLabel(item.type)}: ${item.creator}`,
-				formatLength(item.type, item.length),
-				item.type === 'tv' && item.seasonsTotal && `${item.seasonsTotal} seasons`
-			]
-				.filter(Boolean)
-				.join(' · ')}
-		</p>
-		<p class="dates">
-			Added {formatDate(item.addedAt)}
-			{#if item.startedAt}· started {formatDate(item.startedAt)}{/if}
-			{#if item.finishedAt}· finished {formatDate(item.finishedAt)}{/if}
-		</p>
+<section class="hero">
+	<div class="hero-cover">
+		<Cover url={item.coverUrl} type={item.type} title={item.title} width={132} />
 	</div>
+	<h1>{item.title}</h1>
+	<p class="meta">
+		{[
+			TYPE_LABELS[item.type],
+			item.year,
+			item.creator,
+			formatLength(item.type, item.length),
+			item.type === 'tv' && item.seasonsTotal && `${item.seasonsTotal} seasons`
+		]
+			.filter(Boolean)
+			.join(' · ')}
+	</p>
 </section>
 
-<form method="POST" action="?/progress" class="card" use:enhance={submit}>
-	<fieldset class="statuses">
-		<legend>Status</legend>
-		<div class="options">
-			{#each MEDIA_STATUSES as option (option)}
-				<label>
-					<input type="radio" name="status" value={option} bind:group={status} />
-					<span>{STATUS_LABELS[option]}</span>
-				</label>
-			{/each}
+<form
+	method="POST"
+	action="?/progress"
+	class="progress"
+	bind:this={progressForm}
+	use:enhance={saveProgress}
+	onchange={onProgressChange}
+>
+	<div class="status-row" class:single={!next}>
+		<div class="status-picker">
+			<label for="status" class="visually-hidden">Status</label>
+			<span class="dot" aria-hidden="true"></span>
+			<select id="status" name="status" bind:value={status}>
+				{#each MEDIA_STATUSES as option (option)}
+					<option value={option}>{STATUS_LABELS[option]}</option>
+				{/each}
+			</select>
 		</div>
-	</fieldset>
+		{#if next}
+			<button type="button" class="button primary" onclick={() => moveTo(next.to)}>
+				<Icon name={next.icon} size={18} stroke={2.5} />{next.label}
+			</button>
+		{/if}
+	</div>
 
 	{#if item.type === 'tv' && status === 'in_progress'}
-		<div>
-			<label for="current_season">Current season</label>
-			<div class="season">
-				<input
-					id="current_season"
-					name="current_season"
-					inputmode="numeric"
-					value={item.currentSeason ?? 1}
-					aria-invalid={form?.progressErrors?.current_season ? 'true' : undefined}
-				/>
-				{#if item.seasonsTotal}<span>of {item.seasonsTotal}</span>{/if}
-			</div>
-			{#if form?.progressErrors?.current_season}
-				<p class="field-error">{form.progressErrors.current_season}</p>
-			{/if}
+		<div class="card row">
+			<label for="current_season">Watching</label>
+			<select
+				id="current_season"
+				name="current_season"
+				class="season"
+				aria-invalid={form?.progressErrors?.current_season ? 'true' : undefined}
+			>
+				{#each Array.from({ length: seasonCount }, (_, i) => i + 1) as season (season)}
+					<option value={season} selected={season === (item.currentSeason ?? 1)}>
+						Season {season}
+					</option>
+				{/each}
+			</select>
 		</div>
+		{#if form?.progressErrors?.current_season}
+			<p class="field-error">{form.progressErrors.current_season}</p>
+		{/if}
 	{/if}
 
 	{#if status === 'finished'}
-		<fieldset class="rating">
-			<legend>Rating</legend>
+		<fieldset class="card rating">
+			<legend>Your rating</legend>
 			<div class="options">
 				{#each Array.from({ length: 10 }, (_, i) => i + 1) as value (value)}
 					<label>
-						<input
-							type="radio"
-							name="rating"
-							{value}
-							checked={item.rating === value}
-						/>
+						<input type="radio" name="rating" {value} checked={item.rating === value} />
 						<span>{value}</span>
 					</label>
 				{/each}
@@ -120,140 +223,333 @@
 		</fieldset>
 	{/if}
 
-	<div>
-		<label for="notes">{status === 'finished' ? 'How was it?' : 'Notes'}</label>
-		<textarea id="notes" name="notes" value={item.notes ?? ''}></textarea>
-	</div>
+	{#if data.overview}
+		<section class="about">
+			<h2>About</h2>
+			<p>{data.overview}</p>
+		</section>
+	{/if}
 
-	<div>
-		<label for="heard_from">Heard from</label>
-		<input id="heard_from" name="heard_from" value={item.heardFrom ?? ''} />
-	</div>
-
-	<div class="actions">
-		<button class="button primary" disabled={busy}>Save</button>
-		{#if form?.saved === 'progress'}<span class="saved" role="status">Saved</span>{/if}
+	<div class="card notes">
+		<div class="notes-head">
+			<h2>Your notes</h2>
+			<span class="save-state" class:error={saveState === 'error'} role="status">
+				{#if saveState === 'saving'}
+					Saving…
+				{:else if saveState === 'saved'}
+					<Icon name="check" size={14} stroke={2.75} />Saved
+				{:else if saveState === 'error'}
+					Couldn't save
+				{/if}
+			</span>
+		</div>
+		<div>
+			<label for="notes">{status === 'finished' ? 'How was it?' : 'Notes'}</label>
+			<textarea
+				id="notes"
+				name="notes"
+				placeholder="Anything to remember about it"
+				value={item.notes ?? ''}
+				oninput={saveAfterTyping}
+			></textarea>
+		</div>
+		<div>
+			<label for="heard_from">Heard from</label>
+			<input
+				id="heard_from"
+				name="heard_from"
+				placeholder="A friend, an article, a podcast…"
+				value={item.heardFrom ?? ''}
+				oninput={saveAfterTyping}
+			/>
+		</div>
+		<noscript><button class="button primary">Save</button></noscript>
 	</div>
 </form>
 
-<details class="card" open={!!form?.detailsErrors}>
+<p class="dates">
+	Added {formatDate(item.addedAt)}
+	{#if item.startedAt}· started {formatDate(item.startedAt)}{/if}
+	{#if item.finishedAt}· finished {formatDate(item.finishedAt)}{/if}
+</p>
+
+<details class="card edit" bind:open={detailsOpen} bind:this={detailsSection}>
 	<summary>Edit details</summary>
-	<form method="POST" action="?/details" use:enhance={submit}>
+	<form method="POST" action="?/details" use:enhance={saveDetails}>
 		<DetailsFields bind:type={detailsType} values={item} errors={form?.detailsErrors} />
 		<div class="actions">
-			<button class="button" disabled={busy}>Save details</button>
+			<button class="button primary" disabled={busy}>Save details</button>
 			{#if form?.saved === 'details'}<span class="saved" role="status">Saved</span>{/if}
 		</div>
 	</form>
 </details>
 
-<form
-	method="POST"
-	action="?/delete"
-	class="delete"
-	onsubmit={(event) => {
-		if (!confirm(`Delete "${item.title}"? This can't be undone.`)) event.preventDefault();
-	}}
->
-	<button class="button danger">Delete</button>
-</form>
-
 <style>
-	.back {
-		display: inline-block;
-		margin-bottom: var(--space-3);
-		font-size: var(--text-sm);
-		text-decoration: none;
-	}
-	.summary {
+	/* Full-bleed band in the cover's colour (or the cover itself, blurred) behind the header */
+	.band {
+		position: relative;
 		display: flex;
-		gap: var(--space-4);
-		margin-bottom: var(--space-4);
+		align-items: flex-start;
+		justify-content: space-between;
+		height: 13rem;
+		margin: calc(-1 * var(--space-4)) calc(-1 * var(--gutter)) 0;
+		padding: var(--space-3) var(--space-4);
+		background: var(--tint);
+		/* Clips the blurred art's soft edges */
+		overflow: hidden;
+	}
+	.band-art {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		filter: blur(28px) brightness(0.55) saturate(1.2);
+		transform: scale(1.2);
+		pointer-events: none;
+	}
+	.on-art {
+		position: relative;
+		z-index: 1;
+		background: rgb(0 0 0 / 0.35);
+		color: #ffffff;
+	}
+	.menu {
+		position: relative;
+		z-index: 2;
+	}
+	.menu summary {
+		list-style: none;
+	}
+	.menu summary::-webkit-details-marker {
+		display: none;
+	}
+	/* The band clips overflow, so the open menu is placed fixed under the button */
+	.menu-panel {
+		position: fixed;
+		top: 4rem;
+		right: max(var(--space-4), calc((100vw - var(--max-width)) / 2));
+		z-index: 20;
+		display: grid;
+		min-width: 12rem;
+		padding: var(--space-1);
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+		box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+	}
+	.menu-panel button {
+		width: 100%;
+		min-height: 2.75rem;
+		padding: 0 var(--space-3);
+		border: 0;
+		border-radius: 8px;
+		background: none;
+		color: var(--text);
+		font-weight: 700;
+		text-align: left;
+		cursor: pointer;
+	}
+	.menu-panel button:hover {
+		background: var(--surface);
+	}
+	.menu-panel .danger {
+		color: var(--danger);
+	}
+
+	.hero {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-1);
+		margin-top: -7.125rem;
+		text-align: center;
+	}
+	.hero-cover {
+		border-radius: 12px;
+		box-shadow:
+			0 0 0 4px var(--bg),
+			0 12px 28px rgb(0 0 0 / 0.5);
 	}
 	h1 {
-		font-size: var(--text-lg);
+		margin-top: 0.875rem;
+		font-size: var(--text-xl);
+		font-weight: 800;
+		letter-spacing: -0.02em;
 	}
-	.meta,
-	.dates {
-		margin: var(--space-1) 0 0;
+	.meta {
+		margin: 0;
 		color: var(--muted);
-		font-size: var(--text-sm);
+		font-size: 0.9375rem;
 	}
-	.card {
+
+	.progress {
 		display: grid;
 		gap: var(--space-4);
-		margin-bottom: var(--space-4);
+		margin-top: var(--space-5);
+	}
+	.status-row {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.625rem;
+	}
+	.status-row.single {
+		grid-template-columns: 1fr;
+	}
+	.status-row .button {
+		border-radius: var(--radius-md);
+	}
+	/* Native select dressed as a button, with an amber dot for the current status */
+	.status-picker {
+		position: relative;
+	}
+	.status-picker .dot {
+		position: absolute;
+		left: 1rem;
+		top: 50%;
+		width: 8px;
+		height: 8px;
+		margin-top: -4px;
+		border-radius: 999px;
+		background: var(--accent);
+		pointer-events: none;
+	}
+	.status-picker select {
+		height: 3rem;
+		padding-left: 2rem;
+		border-color: var(--border);
+		border-radius: var(--radius-md);
+		font-weight: 700;
+	}
+
+	.card {
+		margin: 0;
 		padding: var(--space-4);
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
 	}
-	details.card {
-		display: block;
+	.row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
 	}
-	details form {
-		display: grid;
-		gap: var(--space-4);
-		margin-top: var(--space-4);
-	}
-	summary {
-		font-weight: 600;
-		cursor: pointer;
-	}
-	fieldset {
+	.row label {
 		margin: 0;
-		padding: 0;
-		border: 0;
-		min-width: 0;
+		color: var(--text);
+		font-size: 1rem;
 	}
-	legend {
+	.season {
+		width: auto;
+		min-width: 9.25rem;
+		min-height: 2.75rem;
+		background-color: var(--surface-2);
+		font-weight: 700;
+	}
+
+	.rating legend {
+		float: left;
+		width: 100%;
+		margin-bottom: var(--space-3);
 		padding: 0;
-		margin-bottom: var(--space-1);
 		font-size: var(--text-sm);
-		font-weight: 600;
+		font-weight: 700;
+		color: var(--muted);
 	}
 	.options {
-		display: flex;
-		flex-wrap: wrap;
+		clear: both;
+		display: grid;
+		grid-template-columns: repeat(5, minmax(0, 1fr));
 		gap: var(--space-2);
 	}
 	.options label {
 		margin: 0;
+		color: var(--text);
 		font-size: 1rem;
-		font-weight: 500;
 	}
 	.options input {
 		position: absolute;
 		opacity: 0;
 	}
 	.options span {
-		display: block;
-		min-width: 2.75rem;
-		padding: var(--space-2) var(--space-3);
-		text-align: center;
-		border: 1px solid var(--border);
-		border-radius: 999px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 2.75rem;
+		border-radius: var(--radius-sm);
+		background: var(--surface-2);
+		font-weight: 700;
 		cursor: pointer;
 	}
 	.options input:checked + span {
 		background: var(--accent);
-		border-color: var(--accent);
 		color: var(--accent-text);
+		font-weight: 800;
 	}
 	.options input:focus-visible + span {
 		outline: 2px solid var(--focus);
 		outline-offset: 2px;
 	}
-	.season {
+
+	h2 {
+		font-size: 1.0625rem;
+		font-weight: 800;
+	}
+	.about {
+		display: grid;
+		gap: 0.375rem;
+		margin-top: var(--space-2);
+	}
+	.about p {
+		margin: 0;
+		color: var(--text-soft);
+		font-size: 0.9375rem;
+		line-height: 1.55;
+	}
+
+	.notes {
+		display: grid;
+		gap: 0.875rem;
+	}
+	.notes-head {
 		display: flex;
 		align-items: center;
-		gap: var(--space-2);
+		justify-content: space-between;
 	}
-	.season input {
-		width: 5rem;
-	}
-	.season span {
+	.save-state {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
 		color: var(--muted);
+		font-size: 0.8125rem;
+		font-weight: 600;
+	}
+	.save-state.error {
+		color: var(--danger);
+	}
+	.notes textarea,
+	.notes input {
+		background: var(--bg);
+	}
+
+	.dates {
+		margin: var(--space-4) 0;
+		color: var(--muted);
+		font-size: var(--text-sm);
+		text-align: center;
+	}
+
+	.edit summary {
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.edit form {
+		display: grid;
+		gap: var(--space-4);
+		margin-top: var(--space-4);
 	}
 	.actions {
 		display: flex;
@@ -263,9 +559,6 @@
 	.saved {
 		color: var(--accent);
 		font-size: var(--text-sm);
-		font-weight: 600;
-	}
-	.delete {
-		margin-top: var(--space-6);
+		font-weight: 700;
 	}
 </style>
